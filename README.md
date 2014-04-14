@@ -1,4 +1,4 @@
-BD2
+Banco de Dados 2 - SENAC-RS
 ===
 
-Banco de dados 2 - SENACRS
+Todos os trabalhos referentes a cadeira de Bando de Dados 2 está neste repositório
