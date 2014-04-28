@@ -187,12 +187,133 @@ $$ language 'plpgsql';
 select comissao_soma('16565646545')
 
 
+--	Criar uma transação com o bloco:
+	-- Venda e Atualização do estoque,
+	-- Atualização do bônus do cliente,
+	-- Atualização da comissão do vendedor
+
+
+begin;
+
+update produtos set codigo_produto = 1
+		where produtos.quantidade = quantidade - 2;
+
+savepoint produtos_quantidade;
+
+update bonus set bonus = 20
+	     where bonus.cpf_cliente = '11234567891';
+
+savepoint bonus_cliente;
+
+update comissoes set comissao = 30
+		 where comissoes.cpf_funcionario = '16565646545';
+
+savepoint comissoes_funcionario;
+
+commit;
+
+
+--	Faça uma função para Consultar qual o produto mais caro
+
+create or replace function produto_caro() returns setof record as
+$$
+
+begin
+	return query select max(preco_unitario) from produtos
+	group by preco_unitario limit 1;
+	return;
+
+end;
+
+$$language 'plpgsql';
+
+drop function produto_caro()
+
+select * from produto_caro() as (preco_unitario decimal);
 
 
 
+--	Faça uma função para Consultar qual o produto e o mais barato;
+
+create or replace function produto_barato() returns setof record as
+$$
+begin
+	return query select preco_unitario from produtos
+	order by preco_unitario asc limit 1;
+end;
+
+$$language 'plpgsql';
+
+drop function produto_barato()
+
+select * from produto_barato() as (preco_unitario decimal);
 
 
+--	Faça uma função para mostrar qual o cliente mais antigo;
+
+create or replace function cliente_antigo() returns setof record as
+$$
+begin
+	return query select data_cadastro from clientes order by data_cadastro asc limit 1;
+end;
+
+$$language 'plpgsql';
+
+drop function cliente_antigo()
+
+select * from cliente_antigo() as (data_cadastro date);
 
 
+--	Faça uma função que consulte qual o cliente que não tem bônus e o remova da tabela
+
+insert into clientes values ('56293850681','Ronaldo Nazario','Rua Angra, 7698','Porto Alegre','RS','90473614','5443554878','29/10/2014','16/06/1978');
+
+insert into vendas values (04,'12/05/2014','56293850681','12903912319');
+
+insert into bonus values (08,'56293850681',04,'0');
 
 
+create or replace function cliente_sem_bonus () returns setof record as
+$$
+begin 
+	return query select cpf_cliente from bonus where bonus = 0;
+
+	delete from bonus where bonus = '0'; 
+end;
+
+$$language 'plpgsql';
+
+drop function cliente_sem_bonus();
+
+select * from cliente_sem_bonus() as (cpf_cliente char(11));
+
+
+--	Faça uma view que mostre as vendas por  cliente
+
+create or replace view venda_por_cliente(vendas, clientes) as select vendas.codigo_venda as venda, clientes.cpf as cliente 
+		       from vendas, clientes
+		       where vendas.cpf_cliente = clientes.cpf
+		       order by vendas.codigo_venda
+
+drop view venda_por_cliente
+
+select * from venda_por_cliente
+
+
+--	Faça uma função que mostre as vendas de um cliente  Parâmetro de entrada (cpf)
+
+
+create or replace function vendas_de_cliente (char(11)) returns 
+table (cliente char(11), codigo_vendas varchar(40)) as
+$$
+begin
+	return query select clientes.cpf, vendas.codigo_venda from vendas, clientes
+	where clientes.cpf = vendas.cpf_cliente
+	and vendas.cpf_cliente=$1;
+	
+end;
+$$language 'plpgsql';
+
+drop function vendas_de_cliente(char)
+
+select vendas_de_cliente('85274196378')
